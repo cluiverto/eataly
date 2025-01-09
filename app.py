@@ -1,15 +1,7 @@
 import streamlit as st
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from lyricsgenius import Genius
 import os
-from dotenv import load_dotenv
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-
-# Ładowanie zmiennych środowiskowych z pliku .env
-load_dotenv()
-
-# Inicjalizacja Genius z tokenem
-GENIUS_ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")  # Wczytanie tokena z .env
-genius = Genius(GENIUS_ACCESS_TOKEN)
 
 # Wybór modelu do tłumaczenia
 model_name = "clui/opus-it-pl-v1"  # Model tłumaczenia z włoskiego na polski
@@ -17,12 +9,79 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
 # Tytuł aplikacji
-st.title("Song Lyrics Translator")
+st.title("Neural Notes")
+
+# Ustawienia tła
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #f0f4f8; /* Kolor tła podobny do DeepL */
+        color: #333333; /* Kolor tekstu */
+    }
+    .stButton>button {
+        background-color: #4CAF50; /* Zielony przycisk */
+        color: white;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Sekcja Translator
+st.subheader("Translator")
+st.write("Wprowadź tekst piosenki, a model przetłumaczy go linijka po linijce. Umożliwia to łatwe zrozumienie treści utworów w innym języku.")
+
+# Wprowadzenie tekstu piosenki
+input_text = st.text_area("Wprowadź tekst, model przetłumaczy go linijka po linijce:", height=300)
+
+if st.button("Tłumacz"):
+    if input_text:
+        # Podział tekstu na linie
+        lines = input_text.split('\n')
+        translated_lines = []
+        
+        # Tłumaczenie każdej linii
+        for line in lines:
+            if line.strip():  # Sprawdzenie, czy linia nie jest pusta
+                # Tokenizacja
+                inputs = tokenizer(line, return_tensors="pt", padding=True)
+                
+                # Generowanie tłumaczenia
+                translated_outputs = model.generate(**inputs)
+                
+                # Dekodowanie przetłumaczonego tekstu
+                translated_text = tokenizer.decode(translated_outputs[0], skip_special_tokens=True)
+                
+                translated_lines.append(translated_text)
+
+        # Wyświetlanie przetłumaczonych linii w dwóch kolumnach
+        col1, col2 = st.columns(2)  # Dwie kolumny
+        
+        with col1:
+            st.subheader("Oryginalne linie:")
+            for original in lines:
+                st.write(original)
+
+        with col2:
+            st.subheader("Przetłumaczone linie:")
+            for translated in translated_lines:
+                st.write(translated)
+    else:
+        st.warning("Proszę wpisać tekst piosenki.")
+
+# Inicjalizacja Genius z tokenem
+GENIUS_ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")  # Wczytanie tokena z .env
+genius = Genius(GENIUS_ACCESS_TOKEN)
+
+# Sekcja Genius Mode
+st.subheader("Genius Mode")
+st.write("Wprowadź nazwisko artysty, aby wyszukać jego utwory i wyświetlić ich tekst. Możesz również przetłumaczyć fragmenty tekstów.")
 
 # Wprowadzenie nazwy artysty
-artist_name = st.text_input("Enter the artist's name:")
+artist_name = st.text_input("Wprowadź nazwisko artysty:")
 
-if st.button("Search"):
+if st.button("Szukaj"):
     if artist_name:
         # Wyszukiwanie artysty i pobieranie jego utworów
         artist = genius.search_artist(artist_name, max_songs=3)
@@ -30,16 +89,15 @@ if st.button("Search"):
         if artist:
             # Wyświetlanie tytułów utworów
             song_titles = [song.title for song in artist.songs]
-            selected_song = st.selectbox("Select a song:", song_titles)
+            selected_song = st.selectbox("Wybierz utwór:", song_titles)
 
             if selected_song:
                 # Pobieranie tekstu wybranego utworu
                 song = genius.search_song(selected_song, artist_name)
-                lyrics = song.lyrics
-                lyrics= lyrics[:200]
+                lyrics = song.lyrics[:200]  # Ograniczenie do pierwszych 200 znaków
                 
                 # Wyświetlanie tekstu piosenki
-                st.subheader("Original Lyrics:")
+                st.subheader("Oryginalny tekst:")
                 st.write(lyrics)
 
                 # Tłumaczenie tekstu
@@ -48,9 +106,9 @@ if st.button("Search"):
                 translated_lyrics = tokenizer.decode(translated_outputs[0], skip_special_tokens=True)
 
                 # Wyświetlanie przetłumaczonego tekstu
-                st.subheader("Translated Lyrics:")
+                st.subheader("Przetłumaczony tekst:")
                 st.write(translated_lyrics)
         else:
-            st.warning("No songs found for this artist.")
+            st.warning("Nie znaleziono utworów dla tego artysty.")
     else:
-        st.warning("Please enter an artist's name.")
+        st.warning("Proszę wpisać nazwisko artysty.")
