@@ -28,55 +28,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Sekcja Translator
-st.subheader("Translator")
-st.write("Wprowadź tekst piosenki, a model przetłumaczy go linijka po linijce. Umożliwia to łatwe zrozumienie treści utworów w innym języku.")
-
-# Wprowadzenie tekstu piosenki
-input_text = st.text_area("Wprowadź tekst, model przetłumaczy go linijka po linijce:", height=300)
-
-if st.button("Tłumacz"):
-    if input_text:
-        # Podział tekstu na linie
-        lines = input_text.split('\n')
-        translated_lines = []
-        
-        # Tłumaczenie każdej linii
-        for line in lines:
-            if line.strip():  # Sprawdzenie, czy linia nie jest pusta
-                # Tokenizacja
-                inputs = tokenizer(line, return_tensors="pt", padding=True)
-                
-                # Generowanie tłumaczenia
-                translated_outputs = model.generate(**inputs)
-                
-                # Dekodowanie przetłumaczonego tekstu
-                translated_text = tokenizer.decode(translated_outputs[0], skip_special_tokens=True)
-                
-                translated_lines.append(translated_text)
-
-        # Wyświetlanie przetłumaczonych linii w dwóch kolumnach
-        col1, col2 = st.columns(2)  # Dwie kolumny
-        
-        with col1:
-            st.subheader("Oryginalne linie:")
-            for original in lines:
-                st.write(original)
-
-        with col2:
-            st.subheader("Przetłumaczone linie:")
-            for translated in translated_lines:
-                st.write(translated)
-    else:
-        st.warning("Proszę wpisać tekst piosenki.")
-
 # Inicjalizacja Genius z tokenem
 GENIUS_ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")  # Wczytanie tokena z .env
 genius = Genius(GENIUS_ACCESS_TOKEN)
 
 # Sekcja Genius Mode
 st.subheader("Genius Mode")
-st.write("Wprowadź nazwisko artysty, aby wyszukać jego utwory i wyświetlić ich tekst. Możesz również przetłumaczyć fragmenty tekstów.")
+st.write("")
 
 # Wprowadzenie nazwy artysty
 artist_name = st.text_input("Wprowadź nazwisko artysty:")
@@ -94,20 +52,29 @@ if st.button("Szukaj"):
             if selected_song:
                 # Pobieranie tekstu wybranego utworu
                 song = genius.search_song(selected_song, artist_name)
-                lyrics = song.lyrics[:200]  # Ograniczenie do pierwszych 200 znaków
+                lyrics = song.lyrics.splitlines()  # Podział tekstu na linie
                 
-                # Wyświetlanie tekstu piosenki
-                st.subheader("Oryginalny tekst:")
-                st.write(lyrics)
+                # Wyświetlanie tekstu piosenki w dwóch kolumnach
+                col1, col2 = st.columns(2)  # Tworzenie dwóch kolumn
+                
+                with col1:
+                    st.subheader("Oryginalne linie:")
+                    for line in lyrics:
+                        st.write(line)
 
-                # Tłumaczenie tekstu
-                inputs = tokenizer(lyrics, return_tensors="pt", padding=True)
-                translated_outputs = model.generate(**inputs)
-                translated_lyrics = tokenizer.decode(translated_outputs[0], skip_special_tokens=True)
+                # Tłumaczenie każdej linii
+                translated_lines = []
+                for line in lyrics:
+                    if line.strip():  # Sprawdzenie, czy linia nie jest pusta
+                        inputs = tokenizer(line, return_tensors="pt", padding=True)
+                        translated_outputs = model.generate(**inputs)
+                        translated_text = tokenizer.decode(translated_outputs[0], skip_special_tokens=True)
+                        translated_lines.append(translated_text)
 
-                # Wyświetlanie przetłumaczonego tekstu
-                st.subheader("Przetłumaczony tekst:")
-                st.write(translated_lyrics)
+                with col2:
+                    st.subheader("Przetłumaczone linie:")
+                    for translated in translated_lines:
+                        st.write(translated)
         else:
             st.warning("Nie znaleziono utworów dla tego artysty.")
     else:
